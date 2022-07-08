@@ -1,0 +1,11 @@
+name: AdvancedBan
+author: alvin0319
+main: alvin0319\AdvancedBan\Loader
+version: 1.0.0
+api: 4.0.0
+
+permissions:
+  advancedban.command.ban:
+    default: op
+  advancedban.command.pardon:
+    default: op
