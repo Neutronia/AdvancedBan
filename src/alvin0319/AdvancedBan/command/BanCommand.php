@@ -55,9 +55,9 @@ final class BanCommand extends Command implements PluginOwned{
 			}
 			$deviceIds = yield from Loader::getDatabase()->getSession($player);
 			assert(count($deviceIds) > 0, "Player not found");
-			yield from Loader::getDatabase()->banName($player, $date->getTimestamp(), $reason, $sender->getName());
+			yield from Loader::getDatabase()->banName($player, $date?->getTimestamp() ?? -1, $reason, $sender->getName());
 			foreach($deviceIds as $deviceId){
-				yield from Loader::getDatabase()->banDevice($deviceId, $date->getTimestamp(), $reason, $sender->getName());
+				yield from Loader::getDatabase()->banDevice($deviceId, $date?->getTimestamp() ?? -1, $reason, $sender->getName());
 			}
 			$sender->sendMessage(Loader::$prefix . "Banned player {$player}. Reason: {$reason}");
 		});
