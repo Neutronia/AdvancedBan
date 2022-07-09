@@ -9,14 +9,16 @@ use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\plugin\PluginOwned;
 use pocketmine\plugin\PluginOwnedTrait;
+use pocketmine\Server;
 use SOFe\AwaitGenerator\Await;
+use function array_intersect;
 use function array_shift;
-use function assert;
 use function count;
 use function date;
 use function implode;
 use function in_array;
 use function is_numeric;
+use function json_decode;
 use function strlen;
 use function time;
 use function trim;
@@ -41,7 +43,7 @@ final class BanCommand extends Command implements PluginOwned{
 		array_shift($args);
 		array_shift($args);
 		$date = null;
-		if(count($args) > 1){
+		if(count($args) > 0){
 			try{
 				$date = $this->parseDate(array_shift($args));
 			}catch(\InvalidArgumentException $e){
@@ -50,16 +52,23 @@ final class BanCommand extends Command implements PluginOwned{
 		}
 		Await::f2c(function() use ($sender, $player, $reason, $date) : \Generator{
 			if(yield from Loader::getInstance()->isBannedName($player)){
-				$sender->sendMessage(Loader::$prefix . "Player is already banned");
+				$sender->sendMessage(Loader::$prefix . "Player is already banned.");
 				return;
 			}
 			$deviceIds = yield from Loader::getDatabase()->getSession($player);
-			assert(count($deviceIds) > 0, "Player not found");
+			if(count($deviceIds) === 0){
+				$sender->sendMessage(Loader::$prefix . "Player not found.");
+				return;
+			}
 			yield from Loader::getDatabase()->banName($player, $date?->getTimestamp() ?? -1, $reason, $sender->getName());
-			foreach($deviceIds as $deviceId){
+			foreach(json_decode($deviceIds[0]["deviceIds"]) as $deviceId){
 				yield from Loader::getDatabase()->banDevice($deviceId, $date?->getTimestamp() ?? -1, $reason, $sender->getName());
 			}
 			$sender->sendMessage(Loader::$prefix . "Banned player {$player}. Reason: {$reason}");
+			$this->kickMatchPlayer($player);
+			if(($target = $sender->getServer()->getPlayerExact($player)) !== null){
+				$target->kick(Loader::$prefix . "Banned by {$sender->getName()}. Reason: {$reason}");
+			}
 		});
 	}
 
@@ -100,5 +109,19 @@ final class BanCommand extends Command implements PluginOwned{
 		return \DateTime::createFromFormat("m-d-Y H:i:s",
 			date("m-d-Y H:i:s", time() + (60 * 60 * 24 * $day) + (60 * 60 * $hour) + (60 * $min) + $sec)
 		);
+	}
+
+	private function kickMatchPlayer(array $deviceIds) : void{
+		Await::f2c(function() use ($deviceIds) : \Generator{
+			foreach(Server::getInstance()->getOnlinePlayers() as $player){
+				$data = yield from Loader::getDatabase()->getSession($player->getName());
+				if(count($data) > 0){
+					$playerDeviceIds = json_decode($data[0]["deviceIds"]);
+					if(count(array_intersect($playerDeviceIds, $deviceIds)) > 0){
+						$player->kick("You have been banned.");
+					}
+				}
+			}
+		});
 	}
 }

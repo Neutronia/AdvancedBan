@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace alvin0319\AdvancedBan;
 
+use alvin0319\AdvancedBan\command\BanCommand;
+use alvin0319\AdvancedBan\command\PardonCommand;
 use pocketmine\event\EventPriority;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerLoginEvent;
@@ -95,10 +97,25 @@ final class Loader extends PluginBase{
 				}));
 			}
 		}, EventPriority::LOWEST, $this);
+
+		$banCommand = $this->getServer()->getCommandMap()->getCommand("ban");
+		if($banCommand !== null){
+			$banCommand->setLabel($banCommand->getLabel() . "__disabled");
+			$this->getServer()->getCommandMap()->unregister($banCommand);
+		}
+		$pardonCommand = $this->getServer()->getCommandMap()->getCommand("pardon");
+		if($pardonCommand !== null){
+			$pardonCommand->setLabel($pardonCommand->getLabel() . "__disabled");
+			$this->getServer()->getCommandMap()->unregister($pardonCommand);
+		}
+
+		$this->getServer()->getCommandMap()->registerAll("ban", [
+			new BanCommand(),
+			new PardonCommand()
+		]);
 	}
 
 	protected function onDisable() : void{
-		$this->connector->waitAll();
 		$this->connector->close();
 	}
 
@@ -106,7 +123,7 @@ final class Loader extends PluginBase{
 		$banned = yield from self::$database->isBannedDevice($deviceId);
 		if(count($banned) > 0){
 			$expireAt = $banned[0]["expireAt"];
-			if($expireAt !== -1 && $expireAt >= time()){
+			if($expireAt !== -1 && $expireAt <= time()){
 				yield from self::$database->pardonDevice($deviceId);
 				return false;
 			}
@@ -120,7 +137,7 @@ final class Loader extends PluginBase{
 		$banned = yield from self::$database->isBannedName($name);
 		if(count($banned) > 0){
 			$expireAt = $banned[0]["expireAt"];
-			if($expireAt !== -1 && $expireAt >= time()){
+			if($expireAt !== -1 && $expireAt <= time()){
 				yield from self::$database->pardonName($name);
 				return false;
 			}
