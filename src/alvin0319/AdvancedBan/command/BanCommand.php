@@ -57,8 +57,8 @@ final class BanCommand extends Command implements PluginOwned{
 			}
 			$deviceIds = yield from Loader::getDatabase()->getSession($player);
 			if(count($deviceIds) === 0){
-				$sender->sendMessage(Loader::$prefix . "Player not found.");
-				return;
+				yield from Loader::getDatabase()->createSession($player, json_encode([]));
+				$deviceIds = [];
 			}
 			yield from Loader::getDatabase()->banName($player, $date?->getTimestamp() ?? -1, $reason, $sender->getName());
 			foreach(json_decode($deviceIds[0]["deviceIds"]) as $deviceId){
